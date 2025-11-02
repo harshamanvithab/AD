@@ -75,11 +75,20 @@ export function OutfitGallery({
                 data-testid={`card-outfit-${outfit.id}`}
               >
                 <div className="aspect-square relative">
-                  <img
-                    src={outfit.imageUrl}
-                    alt={outfit.name}
-                    className="w-full h-full object-cover"
-                  />
+                  {outfit.imageUrl ? (
+                    <img
+                      src={outfit.imageUrl}
+                      alt={outfit.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                      <div className="text-white text-center p-4">
+                        <div className="text-4xl mb-2">👕</div>
+                        <div className="text-xs font-medium">3D Model</div>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Category Badge */}
                   <Badge

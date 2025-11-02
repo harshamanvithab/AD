@@ -6,11 +6,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
 import { Camera as MediaPipeCamera } from "@mediapipe/camera_utils";
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 interface VirtualTryOn3DProps {
   selectedOutfit?: {
     id: string;
-    imageUrl: string;
+    imageUrl?: string | null;
+    modelUrl?: string | null;
     name: string;
     category: string;
   } | null;
@@ -104,11 +106,11 @@ export function VirtualTryOn3D({ selectedOutfit, onCameraStatus, onCapture }: Vi
     };
   }, []);
 
-  // Create or update clothing based on category
+  // Load and update 3D clothing model
   useEffect(() => {
-    if (!selectedOutfit || !clothingGroupRef.current) return;
+    if (!clothingGroupRef.current) return;
 
-    // Clear existing clothing
+    // Clear existing clothing first (always)
     while (clothingGroupRef.current.children.length > 0) {
       const child = clothingGroupRef.current.children[0];
       clothingGroupRef.current.remove(child);
@@ -120,114 +122,49 @@ export function VirtualTryOn3D({ selectedOutfit, onCameraStatus, onCapture }: Vi
       }
     }
 
-    // Create clothing based on category
-    const category = selectedOutfit.category.toLowerCase();
-    
-    if (category.includes('top') || category === 'all') {
-      // T-shirt
-      const torso = new THREE.Mesh(
-        new THREE.BoxGeometry(1, 1.5, 0.3),
-        new THREE.MeshStandardMaterial({ 
-          color: 0x4a90e2, 
-          transparent: true, 
-          opacity: 0.7,
-          side: THREE.DoubleSide
-        })
-      );
-      clothingGroupRef.current.add(torso);
+    // If no outfit selected or no modelUrl, stop here (model already cleared)
+    if (!selectedOutfit || !selectedOutfit.modelUrl) return;
 
-      // Left sleeve
-      const leftSleeve = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.15, 0.18, 0.8, 16),
-        new THREE.MeshStandardMaterial({ 
-          color: 0x4a90e2, 
-          transparent: true, 
-          opacity: 0.7,
-          side: THREE.DoubleSide
-        })
-      );
-      leftSleeve.position.set(-0.6, 0.4, 0);
-      clothingGroupRef.current.add(leftSleeve);
-
-      // Right sleeve
-      const rightSleeve = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.15, 0.18, 0.8, 16),
-        new THREE.MeshStandardMaterial({ 
-          color: 0x4a90e2, 
-          transparent: true, 
-          opacity: 0.7,
-          side: THREE.DoubleSide
-        })
-      );
-      rightSleeve.position.set(0.6, 0.4, 0);
-      clothingGroupRef.current.add(rightSleeve);
-    } else if (category.includes('bottom')) {
-      // Pants
-      const waist = new THREE.Mesh(
-        new THREE.BoxGeometry(1, 0.3, 0.3),
-        new THREE.MeshStandardMaterial({ 
-          color: 0x2c3e50, 
-          transparent: true, 
-          opacity: 0.7,
-          side: THREE.DoubleSide
-        })
-      );
-      waist.position.set(0, -0.5, 0);
-      clothingGroupRef.current.add(waist);
-
-      // Left leg
-      const leftLeg = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.2, 0.18, 1.4, 16),
-        new THREE.MeshStandardMaterial({ 
-          color: 0x2c3e50, 
-          transparent: true, 
-          opacity: 0.7,
-          side: THREE.DoubleSide
-        })
-      );
-      leftLeg.position.set(-0.25, -1.2, 0);
-      clothingGroupRef.current.add(leftLeg);
-
-      // Right leg
-      const rightLeg = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.2, 0.18, 1.4, 16),
-        new THREE.MeshStandardMaterial({ 
-          color: 0x2c3e50, 
-          transparent: true, 
-          opacity: 0.7,
-          side: THREE.DoubleSide
-        })
-      );
-      rightLeg.position.set(0.25, -1.2, 0);
-      clothingGroupRef.current.add(rightLeg);
-    } else if (category.includes('dress')) {
-      // Dress
-      const upperBody = new THREE.Mesh(
-        new THREE.BoxGeometry(1, 1, 0.3),
-        new THREE.MeshStandardMaterial({ 
-          color: 0xe91e63, 
-          transparent: true, 
-          opacity: 0.7,
-          side: THREE.DoubleSide
-        })
-      );
-      upperBody.position.set(0, 0.2, 0);
-      clothingGroupRef.current.add(upperBody);
-
-      // Skirt
-      const skirt = new THREE.Mesh(
-        new THREE.ConeGeometry(0.8, 1.5, 32),
-        new THREE.MeshStandardMaterial({ 
-          color: 0xe91e63, 
-          transparent: true, 
-          opacity: 0.7,
-          side: THREE.DoubleSide
-        })
-      );
-      skirt.position.set(0, -0.8, 0);
-      clothingGroupRef.current.add(skirt);
-    }
-  }, [selectedOutfit]);
+    // Load GLB model
+    const loader = new GLTFLoader();
+    loader.load(
+      selectedOutfit.modelUrl,
+      (gltf) => {
+        if (!clothingGroupRef.current) return;
+        
+        const model = gltf.scene;
+        
+        // Center and scale the model appropriately
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        
+        // Normalize the model
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 2 / maxDim; // Scale to approximately 2 units
+        model.scale.multiplyScalar(scale);
+        
+        // Center the model
+        model.position.sub(center.multiplyScalar(scale));
+        
+        clothingGroupRef.current.add(model);
+        
+        toast({
+          title: "3D Model Loaded",
+          description: `${selectedOutfit.name} is ready to try on!`,
+        });
+      },
+      undefined,
+      (error) => {
+        console.error('Error loading GLB model:', error);
+        toast({
+          title: "Model Loading Error",
+          description: "Unable to load 3D clothing model. Please try another item.",
+          variant: "destructive",
+        });
+      }
+    );
+  }, [selectedOutfit, toast]);
 
   // Initialize pose detection
   useEffect(() => {
