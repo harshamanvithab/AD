@@ -49,6 +49,11 @@ export default function Home() {
     setSelectedOutfit(outfit);
   };
 
+  const handleCapture = (imageData: string) => {
+    // Photo captured - could be used for saving to gallery in future
+    console.log('Photo captured:', imageData.substring(0, 50) + '...');
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
@@ -68,6 +73,7 @@ export default function Home() {
           <CameraFeed
             selectedOutfit={selectedOutfit}
             onCameraStatus={setCameraStatus}
+            onCapture={handleCapture}
           />
         </div>
 
