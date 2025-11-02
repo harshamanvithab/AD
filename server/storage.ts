@@ -153,8 +153,8 @@ export class MemStorage implements IStorage {
 
   async getWeatherData(city?: string): Promise<WeatherData> {
     // Simulated weather data - in production, this would call a real weather API
-    const weatherConditions: Array<typeof weatherConditions[number]> = ["sunny", "cloudy", "rainy", "snowy"];
-    const randomCondition = weatherConditions[Math.floor(Math.random() * weatherConditions.length)];
+    const conditions: Array<typeof weatherConditions[number]> = ["sunny", "cloudy", "rainy", "snowy"];
+    const randomCondition = conditions[Math.floor(Math.random() * conditions.length)];
     
     return {
       condition: randomCondition,
