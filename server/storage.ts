@@ -1,11 +1,19 @@
-import type { Outfit, InsertOutfit, WeatherData, weatherConditions, moods } from "@shared/schema";
-import { randomUUID } from "crypto";
+import type { Outfit, InsertOutfit, Favorite, InsertFavorite, WeatherData, weatherConditions, moods } from "@shared/schema";
+import { outfits, favorites } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   // Outfit operations
   getAllOutfits(): Promise<Outfit[]>;
   getOutfitById(id: string): Promise<Outfit | undefined>;
   createOutfit(outfit: InsertOutfit): Promise<Outfit>;
+  
+  // Favorites operations
+  getFavorites(userId: string): Promise<Outfit[]>;
+  addFavorite(userId: string, outfitId: string): Promise<Favorite>;
+  removeFavorite(userId: string, outfitId: string): Promise<void>;
+  isFavorite(userId: string, outfitId: string): Promise<boolean>;
   
   // Recommendation operations
   getRecommendations(
@@ -17,16 +25,111 @@ export interface IStorage {
   getWeatherData(city?: string): Promise<WeatherData>;
 }
 
-export class MemStorage implements IStorage {
-  private outfits: Map<string, Outfit>;
-
-  constructor() {
-    this.outfits = new Map();
-    this.initializeOutfits();
+export class DatabaseStorage implements IStorage {
+  async getAllOutfits(): Promise<Outfit[]> {
+    return await db.select().from(outfits);
   }
 
-  private initializeOutfits() {
-    const initialOutfits: InsertOutfit[] = [
+  async getOutfitById(id: string): Promise<Outfit | undefined> {
+    const [outfit] = await db.select().from(outfits).where(eq(outfits.id, id));
+    return outfit || undefined;
+  }
+
+  async createOutfit(insertOutfit: InsertOutfit): Promise<Outfit> {
+    const [outfit] = await db
+      .insert(outfits)
+      .values(insertOutfit)
+      .returning();
+    return outfit;
+  }
+
+  async getFavorites(userId: string): Promise<Outfit[]> {
+    const result = await db
+      .select({
+        outfit: outfits,
+      })
+      .from(favorites)
+      .innerJoin(outfits, eq(favorites.outfitId, outfits.id))
+      .where(eq(favorites.userId, userId));
+    
+    return result.map(r => r.outfit);
+  }
+
+  async addFavorite(userId: string, outfitId: string): Promise<Favorite> {
+    const [favorite] = await db
+      .insert(favorites)
+      .values({ userId, outfitId })
+      .returning();
+    return favorite;
+  }
+
+  async removeFavorite(userId: string, outfitId: string): Promise<void> {
+    await db
+      .delete(favorites)
+      .where(
+        and(
+          eq(favorites.userId, userId),
+          eq(favorites.outfitId, outfitId)
+        )
+      );
+  }
+
+  async isFavorite(userId: string, outfitId: string): Promise<boolean> {
+    const [favorite] = await db
+      .select()
+      .from(favorites)
+      .where(
+        and(
+          eq(favorites.userId, userId),
+          eq(favorites.outfitId, outfitId)
+        )
+      )
+      .limit(1);
+    
+    return !!favorite;
+  }
+
+  async getRecommendations(
+    weather: typeof weatherConditions[number],
+    mood: typeof moods[number]
+  ): Promise<Outfit[]> {
+    const allOutfits = await this.getAllOutfits();
+    
+    // Filter outfits that match both weather and mood
+    const recommendations = allOutfits.filter(outfit => {
+      const matchesWeather = outfit.suitableWeather.includes(weather);
+      const matchesMood = outfit.suitableMoods.includes(mood);
+      return matchesWeather && matchesMood;
+    });
+
+    // If no exact matches, return outfits that match at least the mood
+    if (recommendations.length === 0) {
+      return allOutfits.filter(outfit => outfit.suitableMoods.includes(mood)).slice(0, 5);
+    }
+
+    return recommendations.slice(0, 5);
+  }
+
+  async getWeatherData(city?: string): Promise<WeatherData> {
+    // Simulated weather data - in production, this would call a real weather API
+    const conditions: Array<typeof weatherConditions[number]> = ["sunny", "cloudy", "rainy", "snowy"];
+    const randomCondition = conditions[Math.floor(Math.random() * conditions.length)];
+    
+    return {
+      condition: randomCondition,
+      temperature: Math.floor(Math.random() * 30) + 10, // 10-40°C
+      location: city || "Your Location",
+    };
+  }
+
+  // Initialize database with sample data
+  async initializeSampleData() {
+    const existingOutfits = await this.getAllOutfits();
+    if (existingOutfits.length > 0) {
+      return; // Already initialized
+    }
+
+    const sampleOutfits: InsertOutfit[] = [
       {
         name: "Classic White Tee",
         category: "top",
@@ -109,59 +212,10 @@ export class MemStorage implements IStorage {
       },
     ];
 
-    initialOutfits.forEach(outfit => {
-      const id = randomUUID();
-      this.outfits.set(id, { ...outfit, id });
-    });
-  }
-
-  async getAllOutfits(): Promise<Outfit[]> {
-    return Array.from(this.outfits.values());
-  }
-
-  async getOutfitById(id: string): Promise<Outfit | undefined> {
-    return this.outfits.get(id);
-  }
-
-  async createOutfit(insertOutfit: InsertOutfit): Promise<Outfit> {
-    const id = randomUUID();
-    const outfit: Outfit = { ...insertOutfit, id };
-    this.outfits.set(id, outfit);
-    return outfit;
-  }
-
-  async getRecommendations(
-    weather: typeof weatherConditions[number],
-    mood: typeof moods[number]
-  ): Promise<Outfit[]> {
-    const allOutfits = Array.from(this.outfits.values());
-    
-    // Filter outfits that match both weather and mood
-    const recommendations = allOutfits.filter(outfit => {
-      const matchesWeather = outfit.suitableWeather.includes(weather);
-      const matchesMood = outfit.suitableMoods.includes(mood);
-      return matchesWeather && matchesMood;
-    });
-
-    // If no exact matches, return outfits that match at least the mood
-    if (recommendations.length === 0) {
-      return allOutfits.filter(outfit => outfit.suitableMoods.includes(mood)).slice(0, 5);
+    for (const outfit of sampleOutfits) {
+      await this.createOutfit(outfit);
     }
-
-    return recommendations.slice(0, 5);
-  }
-
-  async getWeatherData(city?: string): Promise<WeatherData> {
-    // Simulated weather data - in production, this would call a real weather API
-    const conditions: Array<typeof weatherConditions[number]> = ["sunny", "cloudy", "rainy", "snowy"];
-    const randomCondition = conditions[Math.floor(Math.random() * conditions.length)];
-    
-    return {
-      condition: randomCondition,
-      temperature: Math.floor(Math.random() * 30) + 10, // 10-40°C
-      location: city || "Your Location",
-    };
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

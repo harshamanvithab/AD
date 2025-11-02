@@ -1,10 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertOutfitSchema, weatherRequestSchema, recommendationRequestSchema } from "@shared/schema";
+import { insertOutfitSchema, weatherRequestSchema, recommendationRequestSchema, insertFavoriteSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize sample data on startup
+  await storage.initializeSampleData();
   // Get all outfits
   app.get("/api/outfits", async (_req, res) => {
     try {
@@ -86,6 +88,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching weather:", error);
       res.status(500).json({ error: "Failed to fetch weather data" });
+    }
+  });
+
+  // Favorites endpoints
+  const DEFAULT_USER_ID = "guest-user"; // For now, use a default user ID until auth is implemented
+
+  // Get user's favorite outfits
+  app.get("/api/favorites", async (req, res) => {
+    try {
+      const userId = req.query.userId as string || DEFAULT_USER_ID;
+      const favoriteOutfits = await storage.getFavorites(userId);
+      res.json(favoriteOutfits);
+    } catch (error) {
+      console.error("Error fetching favorites:", error);
+      res.status(500).json({ error: "Failed to fetch favorites" });
+    }
+  });
+
+  // Add outfit to favorites
+  app.post("/api/favorites", async (req, res) => {
+    try {
+      const { outfitId, userId = DEFAULT_USER_ID } = req.body;
+      
+      if (!outfitId) {
+        return res.status(400).json({ error: "Outfit ID is required" });
+      }
+
+      const favorite = await storage.addFavorite(userId, outfitId);
+      res.status(201).json(favorite);
+    } catch (error) {
+      console.error("Error adding favorite:", error);
+      res.status(500).json({ error: "Failed to add favorite" });
+    }
+  });
+
+  // Remove outfit from favorites
+  app.delete("/api/favorites/:outfitId", async (req, res) => {
+    try {
+      const { outfitId } = req.params;
+      const userId = req.query.userId as string || DEFAULT_USER_ID;
+      
+      await storage.removeFavorite(userId, outfitId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing favorite:", error);
+      res.status(500).json({ error: "Failed to remove favorite" });
+    }
+  });
+
+  // Check if outfit is favorited
+  app.get("/api/favorites/check/:outfitId", async (req, res) => {
+    try {
+      const { outfitId } = req.params;
+      const userId = req.query.userId as string || DEFAULT_USER_ID;
+      
+      const isFavorite = await storage.isFavorite(userId, outfitId);
+      res.json({ isFavorite });
+    } catch (error) {
+      console.error("Error checking favorite:", error);
+      res.status(500).json({ error: "Failed to check favorite status" });
     }
   });
 

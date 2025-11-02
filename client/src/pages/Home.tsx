@@ -1,21 +1,34 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { CameraFeed } from "@/components/CameraFeed";
 import { MobileDrawer } from "@/components/MobileDrawer";
 import { DesktopSidebar } from "@/components/DesktopSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Outfit, weatherConditions, moods } from "@shared/schema";
+
+const DEFAULT_USER_ID = "guest-user"; // For now, use default user ID until auth is implemented
 
 export default function Home() {
   const [selectedOutfit, setSelectedOutfit] = useState<Outfit | null>(null);
   const [selectedWeather, setSelectedWeather] = useState<typeof weatherConditions[number] | null>(null);
   const [selectedMood, setSelectedMood] = useState<typeof moods[number] | null>(null);
   const [cameraStatus, setCameraStatus] = useState<'loading' | 'active' | 'error' | 'denied'>('loading');
+  const { toast } = useToast();
 
   // Fetch all outfits
   const { data: outfits = [], isLoading: isLoadingOutfits } = useQuery<Outfit[]>({
     queryKey: ['/api/outfits'],
   });
+
+  // Fetch favorite outfits
+  const { data: favoriteOutfits = [] } = useQuery<Outfit[]>({
+    queryKey: ['/api/favorites', DEFAULT_USER_ID],
+  });
+
+  // Create a set of favorite IDs for quick lookup
+  const favoriteIds = new Set(favoriteOutfits.map(outfit => outfit.id));
 
   // Fetch recommendations based on weather and mood
   const { data: recommendations = [], isLoading: isLoadingRecommendations } = useQuery<Outfit[]>({
@@ -54,6 +67,49 @@ export default function Home() {
     console.log('Photo captured:', imageData.substring(0, 50) + '...');
   };
 
+  // Add favorite mutation
+  const addFavoriteMutation = useMutation({
+    mutationFn: async (outfitId: string) => {
+      return await apiRequest('POST', '/api/favorites', {
+        outfitId,
+        userId: DEFAULT_USER_ID,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/favorites', DEFAULT_USER_ID] });
+      toast({
+        title: "Added to favorites",
+        description: "Outfit saved to your favorites",
+      });
+    },
+  });
+
+  // Remove favorite mutation
+  const removeFavoriteMutation = useMutation({
+    mutationFn: async (outfitId: string) => {
+      const response = await fetch(`/api/favorites/${outfitId}?userId=${DEFAULT_USER_ID}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to remove favorite');
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/favorites', DEFAULT_USER_ID] });
+      toast({
+        title: "Removed from favorites",
+        description: "Outfit removed from your favorites",
+      });
+    },
+  });
+
+  const handleToggleFavorite = (outfitId: string, isFavorite: boolean) => {
+    if (isFavorite) {
+      removeFavoriteMutation.mutate(outfitId);
+    } else {
+      addFavoriteMutation.mutate(outfitId);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
@@ -81,6 +137,8 @@ export default function Home() {
         <DesktopSidebar
           outfits={outfits}
           recommendations={recommendations}
+          favoriteOutfits={favoriteOutfits}
+          favoriteIds={favoriteIds}
           selectedOutfitId={selectedOutfit?.id}
           selectedWeather={selectedWeather}
           selectedMood={selectedMood}
@@ -88,6 +146,7 @@ export default function Home() {
           onWeatherChange={handleWeatherChange}
           onMoodChange={handleMoodChange}
           onTryOn={handleTryOn}
+          onToggleFavorite={handleToggleFavorite}
           isLoadingOutfits={isLoadingOutfits}
           isLoadingRecommendations={isLoadingRecommendations}
         />
@@ -97,6 +156,8 @@ export default function Home() {
       <MobileDrawer
         outfits={outfits}
         recommendations={recommendations}
+        favoriteOutfits={favoriteOutfits}
+        favoriteIds={favoriteIds}
         selectedOutfitId={selectedOutfit?.id}
         selectedWeather={selectedWeather}
         selectedMood={selectedMood}
@@ -104,6 +165,7 @@ export default function Home() {
         onWeatherChange={handleWeatherChange}
         onMoodChange={handleMoodChange}
         onTryOn={handleTryOn}
+        onToggleFavorite={handleToggleFavorite}
         isLoadingOutfits={isLoadingOutfits}
         isLoadingRecommendations={isLoadingRecommendations}
       />
