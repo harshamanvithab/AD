@@ -131,19 +131,19 @@ export class DatabaseStorage implements IStorage {
 
     const sampleOutfits: InsertOutfit[] = [
       {
-        name: "Casual T-Shirt",
-        category: "top",
-        modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Suzanne/glTF-Binary/Suzanne.glb",
-        description: "A comfortable t-shirt perfect for any casual occasion",
+        name: "Men's Suit & Short Pants",
+        category: "bottom",
+        modelUrl: "/attached_assets/3d_models/men_suit.glb",
+        description: "Professional suit with short pants for a modern look",
         suitableWeather: ["sunny", "cloudy"],
-        suitableMoods: ["casual", "sporty"],
+        suitableMoods: ["professional", "formal"],
       },
       {
-        name: "Stylish Hoodie",
-        category: "top",
-        modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb",
-        description: "Warm and stylish hoodie for cooler days",
-        suitableWeather: ["cloudy", "rainy", "snowy"],
+        name: "Casual Outfit",
+        category: "full",
+        modelUrl: "/attached_assets/3d_models/casual_outfit.glb",
+        description: "Casual everyday outfit perfect for any occasion",
+        suitableWeather: ["sunny", "cloudy", "rainy"],
         suitableMoods: ["casual", "sporty"],
       },
     ];
