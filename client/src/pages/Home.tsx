@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { VirtualTryOn } from "@/components/VirtualTryOn";
+import { VirtualTryOn3D } from "@/components/VirtualTryOn3D";
 import { MobileDrawer } from "@/components/MobileDrawer";
 import { DesktopSidebar } from "@/components/DesktopSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -124,9 +124,9 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Virtual Try-On with Body Tracking */}
+        {/* 3D Virtual Try-On with Body Tracking */}
         <div className="flex-1 relative">
-          <VirtualTryOn
+          <VirtualTryOn3D
             selectedOutfit={selectedOutfit}
             onCameraStatus={setCameraStatus}
             onCapture={handleCapture}

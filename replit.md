@@ -39,7 +39,11 @@ Preferred communication style: Simple, everyday language.
 
 **Key Features Implementation**
 1. **Camera Integration**: WebRTC getUserMedia API for live video feed with front/back camera switching
-2. **Outfit Overlay**: Canvas-based rendering system to composite clothing images over video feed
+2. **3D Virtual Try-On System**: 
+   - **Body Pose Detection**: MediaPipe Pose for real-time body landmark tracking
+   - **3D Clothing Rendering**: Three.js (@react-three/fiber) for rendering 3D clothing models
+   - **Body-to-Clothing Mapping**: Dynamic scaling and positioning of 3D garments based on detected body dimensions
+   - **Real-time Deformation**: Clothing follows body movement with rotation and scaling adjustments
 3. **Responsive Layouts**: 
    - Desktop: Fixed sidebar (320-380px) with camera viewport
    - Mobile: Drawer pattern with expandable outfit gallery
@@ -117,6 +121,17 @@ Preferred communication style: Simple, everyday language.
 
 **Note**: While Drizzle is configured with PostgreSQL schema definitions, the application currently uses in-memory storage. The database infrastructure is ready for migration when needed.
 
+### 3D Graphics & Computer Vision
+- **Three.js**: 3D graphics library for WebGL rendering
+- **@react-three/fiber**: React renderer for Three.js
+- **@react-three/drei**: Helper utilities for Three.js in React
+- **MediaPipe Pose**: Google's ML solution for real-time human pose estimation
+  - Detects 33 body landmarks in 3D space
+  - Runs entirely in the browser using WebAssembly
+  - Provides shoulder, hip, and joint tracking for clothing alignment
+- **MediaPipe Camera Utils**: Camera utilities for MediaPipe integration
+- **MediaPipe Drawing Utils**: Visualization utilities for pose landmarks
+
 ### Development Tools
 - **Vite**: Fast development server with HMR
 - **esbuild**: Fast JavaScript bundler for server builds
@@ -133,8 +148,25 @@ Preferred communication style: Simple, everyday language.
 - **clsx + tailwind-merge**: Conditional class name composition
 - **nanoid**: Unique ID generation
 
+## Recent Changes
+
+### November 2, 2025 - 3D Virtual Try-On Implementation
+- **Added 3D Body Tracking**: Integrated MediaPipe Pose for real-time body landmark detection
+- **3D Clothing Models**: Implemented Three.js-based 3D clothing rendering system
+  - Procedurally generated clothing geometries (t-shirts, dresses, pants)
+  - Ready to load external GLB/GLTF 3D models from sources like Sketchfab
+- **Body-Aware Rendering**: Clothing dynamically scales and positions based on user's body dimensions
+  - Shoulder width detection for proper garment sizing
+  - Torso height calculation for proportional scaling
+  - Real-time rotation matching body tilt
+- **Component Structure**: Created `VirtualTryOn3D.tsx` with separated 3D rendering logic
+- **Performance Optimized**: Runs entirely in browser with WebGL acceleration
+
 ### Future Integration Points
 The architecture supports adding:
+- **3D Model Library**: Import GLB/GLTF clothing models from Sketchfab, CGTrader, or custom sources
+- **Advanced Body Fitting**: Implement skeletal rigging for more realistic clothing deformation
+- **Texture Mapping**: Apply realistic fabrics and materials to 3D clothing
 - Weather API integration for real-time weather data
 - Image upload/storage service for user-uploaded outfits
 - Authentication system (session management already configured)
